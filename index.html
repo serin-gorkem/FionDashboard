@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aylık İçerik Planlayıcı</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="app">
+    <div class="shell">
+      <details class="shrink-section app-header-shrink" data-shrink-key="header" open>
+        <summary>Başlık / Açıklama</summary>
+        <header class="app-header">
+          <div>
+            <h1>Aylık İçerik Planlayıcı</h1>
+            <div class="subtitle">Fion, Motoexpress, Byron ve MTPRO için aylık video/statik içerik planı. Her ay 01’den ay sonuna kadar otomatik gelir; tamamlanan içerik, proje tipi, deadline ve not alanı ayrı ayrı düzenlenebilir. Excel / Numbers / CSV yükleyerek marka bazında deadline günleri ve Video / Statik ayrımı otomatik okunabilir; dosyadan gelen satırlar tamamlandı sayılmaz.</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><input type="checkbox" checked disabled> Tamamlandı</span>
+            <span class="legend-item"><span class="pill video">Video</span> / <span class="pill static">Statik</span></span>
+            <span class="legend-item"><span class="swatch"></span> Deadline günü</span>
+          </div>
+        </header>
+      </details>
+
+      <details class="shrink-section sticky-shrink" data-shrink-key="controls" open>
+        <summary>Kontroller</summary>
+        <section class="controls" aria-label="Planlayıcı kontrolleri">
+        <div class="control-row top">
+          <div class="left-controls">
+            <label class="field">Ay seç <input id="monthInput" type="month" /></label>
+            <button id="addMonthBtn" class="green">Ay Ekle / Aç</button>
+          </div>
+          <div class="right-controls">
+            <label class="field mode-field">Mod
+              <select id="roleMode" class="filter-select">
+                <option value="manager">Yönetici</option>
+                <option value="videographer">Videographer</option>
+                <option value="designer">Grafik Tasarım</option>
+              </select>
+            </label>
+            <span class="mode-hint" id="modeHint">Tüm deadline’lar</span>
+          </div>
+        </div>
+        <details class="mode-settings" id="modeSettings">
+          <summary>Mod Ayarları <span class="mode-settings-summary" id="modeSettingsSummary">Aktif mod kapsamı</span></summary>
+          <div class="mode-settings-content" id="modeSettingsContent"></div>
+        </details>
+        <div class="control-row bottom">
+          <div class="left-controls">
+            <label class="field">Filtre
+              <select id="typeFilter" class="filter-select">
+                <option value="all">Tümü</option>
+                <option value="Video">Sadece Video</option>
+                <option value="Statik">Sadece Statik</option>
+              </select>
+            </label>
+            <span class="mode-filter-note" id="modeFilterNote"></span>
+            <label class="field"><input id="hideClosed" type="checkbox" /> Kapatılan ayları gizle</label>
+            <label class="field"><input id="clearBeforeImport" type="checkbox" checked /> Dosya yüklerken markayı temizle</label>
+          </div>
+          <div class="right-controls">
+            <button class="primary" onclick="window.print()">Yazdır / PDF Kaydet</button>
+            <button id="exportCalendarBtn" class="green">Deadline Takvimi (.ics)</button>
+            <button id="notifyBtn">Bildirim İzni 09/12/15</button>
+            <button id="testNotifyBtn" class="blue">Test / Önizleme Bildirimi</button>
+            <button id="exportBtn">Yedek Dışa Aktar</button>
+            <button id="importBtn">Yedek İçe Aktar</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+            <button id="resetBtn" class="danger">Tümünü Sıfırla</button>
+          </div>
+        </div>
+        </section>
+      </details>
+
+      <details class="shrink-section" data-shrink-key="summaryCards" open>
+        <summary>Özet Kartları</summary>
+        <section class="summary" aria-label="Açık aylar tamamlanmış içerik özeti">
+        <div class="card"><strong>Fion tamamlanmış içerik</strong><span class="total" id="total-Fion">0</span><div class="split" id="split-Fion">Video 0 • Statik 0</div></div>
+        <div class="card"><strong>Motoexpress tamamlanmış içerik</strong><span class="total" id="total-Motoexpress">0</span><div class="split" id="split-Motoexpress">Video 0 • Statik 0</div></div>
+        <div class="card"><strong>Byron tamamlanmış içerik</strong><span class="total" id="total-Byron">0</span><div class="split" id="split-Byron">Video 0 • Statik 0</div></div>
+        <div class="card"><strong>MTPRO tamamlanmış içerik</strong><span class="total" id="total-MTPRO">0</span><div class="split" id="split-MTPRO">Video 0 • Statik 0</div></div>
+        </section>
+      </details>
+
+      <details class="shrink-section" data-shrink-key="deadlineRadarWrap" open>
+        <summary>Deadline Radar</summary>
+        <section id="deadlineRadar" class="deadline-radar" aria-label="Deadline Radar"></section>
+      </details>
+
+      <section id="monthList" class="month-list" aria-label="Aylar"></section>
+      <div class="helper">Değişiklikler bu tarayıcıya otomatik kaydedilir. Başka bilgisayara/tarayıcıya taşımak için “Yedek Dışa Aktar” kullan. Üstteki toplamlar kapatılmamış ayların tamamlanmış içeriklerini sayar.</div>
+    </div>
+  </main>
+  <div id="notificationToastStack" class="notification-toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <script src="/js/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "fion-video-planner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fion Medya aylık içerik planlayıcı ve deadline radar uygulaması.",
+  "scripts": {
+    "dev": "python3 -m http.server 3000",
+    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html && cp -R css js dist/",
+    "start": "python3 -m http.server 3000 -d dist"
+  }
+}
