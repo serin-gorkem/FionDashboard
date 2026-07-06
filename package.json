@@ -5,7 +5,7 @@
   "description": "Fion Medya aylık içerik planlayıcı ve deadline radar uygulaması.",
   "scripts": {
     "dev": "python3 -m http.server 3000",
-    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html && cp -R css js dist/",
+    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/index.html && cp favicon.svg dist/favicon.svg && cp -R css js dist/",
     "start": "python3 -m http.server 3000 -d dist"
   }
 }

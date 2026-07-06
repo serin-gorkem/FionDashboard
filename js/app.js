@@ -1251,6 +1251,14 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       };
     }
 
+    function isEditableTarget(target) {
+      return !!target?.closest?.('input, textarea, select, option, button, a, [contenteditable="true"]');
+    }
+
+    function showProtectionNotice(message = "Bu sayfada temel telif koruması aktif.") {
+      showInAppNotification("İçerik koruması", message, "warn", 4200);
+    }
+
     function showInAppNotification(title, body, tone = "ok", autoCloseMs = 9000) {
       let stack = document.getElementById("notificationToastStack");
       if (!stack) {
@@ -1795,6 +1803,28 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
 
       saveState();
       render();
+    });
+
+    document.addEventListener("contextmenu", event => {
+      if (isEditableTarget(event.target)) return;
+      event.preventDefault();
+      showProtectionNotice("Sağ tık menüsü devre dışı bırakıldı. Bu arayüz Görkem Serin tarafından hazırlanmıştır.");
+    });
+
+    document.addEventListener("dragstart", event => {
+      if (isEditableTarget(event.target)) return;
+      event.preventDefault();
+    });
+
+    document.addEventListener("keydown", event => {
+      const key = String(event.key || "").toLowerCase();
+      const mod = event.ctrlKey || event.metaKey;
+      const devtoolsBlocked = key === "f12" || (event.ctrlKey && event.shiftKey && ["i", "j", "c"].includes(key));
+      const blockedShortcut = mod && ["u", "s"].includes(key);
+      if (!devtoolsBlocked && !blockedShortcut) return;
+      if (isEditableTarget(event.target)) return;
+      event.preventDefault();
+      showProtectionNotice("Kaynak görüntüleme / kayıt kısayolları bu sayfada sınırlandırıldı.");
     });
 
     document.getElementById("addMonthBtn").addEventListener("click", () => addMonth(document.getElementById("monthInput").value));
