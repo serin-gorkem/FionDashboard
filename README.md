@@ -56,4 +56,4 @@ http://localhost:3000
 
 - Veriler tarayıcı `localStorage` içinde tutulur. Domain değişirse veriler ayrı görünür.
 - Bildirim izni HTTPS veya localhost üzerinde çalışır. Vercel HTTPS verdiği için bildirim izni açılabilir.
-- 09:00 / 12:00 / 15:00 browser bildirimleri için sayfanın açık olması gerekir. Site kapalıyken en güvenilir yol `.ics` takvim export'udur.
+- 09:30 / 12:00 / 15:00 browser bildirimleri için sayfanın açık olması gerekir. Site kapalıyken en güvenilir yol `.ics` takvim export'udur.

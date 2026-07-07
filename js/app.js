@@ -17,7 +17,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
     let titleFlashTimer = null;
     const baseDocumentTitle = document.title;
     const reminderSlots = [
-      { key: "09", hour: 9, minute: 0, label: "09:00" },
+      { key: "0930", hour: 9, minute: 30, label: "09:30" },
       { key: "12", hour: 12, minute: 0, label: "12:00" },
       { key: "15", hour: 15, minute: 0, label: "15:00" }
     ];
@@ -1064,7 +1064,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           <div class="radar-actions">
             <button class="small" type="button" id="radarCalendarBtn">Takvime Aktar (.ics)</button>
             <button class="small" type="button" id="radarNotifyBtn">${notifyState}</button>
-            <button class="small blue" type="button" id="radarTestNotifyBtn">Test / Önizleme</button>
+            <button class="small blue" type="button" id="radarTestNotifyBtn">Bildirim Testi (Sesli)</button>
           </div>
         </div>
         <div class="radar-body">
@@ -1138,20 +1138,35 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
         if (!primeReminderAudio()) return false;
         const ctx = reminderAudioContext;
         const now = ctx.currentTime;
-        const notes = [880, 1174, 880];
-        notes.forEach((freq, index) => {
+
+        // Kısa ama güçlü, tek vuruşluk bildirim tonu.
+        const master = ctx.createGain();
+        const compressor = ctx.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-20, now);
+        compressor.knee.setValueAtTime(18, now);
+        compressor.ratio.setValueAtTime(8, now);
+        compressor.attack.setValueAtTime(0.002, now);
+        compressor.release.setValueAtTime(0.12, now);
+
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.exponentialRampToValueAtTime(0.72, now + 0.008);
+        master.gain.setValueAtTime(0.72, now + 0.18);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+        master.connect(compressor);
+        compressor.connect(ctx.destination);
+
+        [1046.5, 1568].forEach((frequency, index) => {
           const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, now + index * 0.22);
-          gain.gain.exponentialRampToValueAtTime(0.085, now + index * 0.22 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.22 + 0.18);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now + index * 0.22);
-          osc.stop(now + index * 0.22 + 0.20);
+          const voiceGain = ctx.createGain();
+          osc.type = index === 0 ? "triangle" : "sine";
+          osc.frequency.setValueAtTime(frequency, now);
+          voiceGain.gain.setValueAtTime(index === 0 ? 0.85 : 0.38, now);
+          osc.connect(voiceGain);
+          voiceGain.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.5);
         });
+
         return true;
       } catch (err) {
         return false;
@@ -1348,45 +1363,30 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
     async function testDeadlineNotification() {
       const payload = getDeadlineNotificationPayload(true);
 
-      // Test / Önizleme her zaman uygulama içinde görünmeli.
-      // Sistem bildirimi çalışmasa bile kullanıcı feedback almalı.
+      // Kullanıcı tıklamasıyla ses kilidini aç ve testi izin durumundan bağımsız çal.
+      primeReminderAudio();
+      const soundPlayed = playReminderChime();
+
       showInAppNotification(
-        `Önizleme: ${payload.title}`,
-        payload.body,
+        "Bildirim testi çalıştı",
+        `${soundPlayed ? "Kısa ve yüksek uyarı sesi çalındı." : "Tarayıcı sesi başlatamadı; cihazın medya sesini ve sekme iznini kontrol et."} ${payload.body}`,
         payload.hasItems ? "ok" : "warn",
-        14000
+        12000
       );
 
       const availability = getNotificationAvailability();
+      if (!availability.ok || Notification.permission === "denied") return;
 
-      // Sistem bildirimi desteklenmiyorsa burada dur. Önizleme zaten gösterildi.
-      if (!availability.ok) {
-        return;
-      }
-
-      // Kullanıcı tarayıcı bildirimini daha önce engellediyse yine burada dur.
-      if (Notification.permission === "denied") {
-        return;
-      }
-
-      // İzin verilmemişse test butonunda izin iste.
       const permission = Notification.permission === "granted"
         ? "granted"
         : await Notification.requestPermission();
 
-      if (permission !== "granted") {
-        return;
-      }
+      if (permission !== "granted") return;
 
       state.settings.notificationsEnabled = true;
-      primeReminderAudio();
       saveState();
-
-      // Sistem bildirimi ayrıca denensin ama uygulama içi önizleme buna bağlı olmasın.
-      playReminderChime();
       flashTitleAttention(payload.title);
       fireSystemNotification(payload.title, payload.body);
-
       scheduleDeadlineNotifications();
       renderDeadlineRadar();
     }
@@ -1505,8 +1505,8 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       ];
 
       items.forEach(item => {
-        const start = makeLocalDate(item.monthData, item.day, 15, 0);
-        const end = makeLocalDate(item.monthData, item.day, 15, 30);
+        const start = makeLocalDate(item.monthData, item.day, 12, 0);
+        const end = makeLocalDate(item.monthData, item.day, 12, 30);
         const summary = `${item.firm} ${item.projectType} Deadline`;
         const description = [
           `Mod: ${mode.label}`,
@@ -1527,19 +1527,9 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           `DESCRIPTION:${escapeIcsText(description)}`,
           `CATEGORIES:${escapeIcsText(`FION,DEADLINE,${item.firm},${item.projectType}`)}`,
           "BEGIN:VALARM",
-          "TRIGGER:-PT6H",
-          "ACTION:DISPLAY",
-          `DESCRIPTION:${escapeIcsText(`09:00 deadline hatırlatması: ${summary}`)}`,
-          "END:VALARM",
-          "BEGIN:VALARM",
-          "TRIGGER:-PT3H",
-          "ACTION:DISPLAY",
-          `DESCRIPTION:${escapeIcsText(`12:00 deadline hatırlatması: ${summary}`)}`,
-          "END:VALARM",
-          "BEGIN:VALARM",
           "TRIGGER:-PT0M",
           "ACTION:DISPLAY",
-          `DESCRIPTION:${escapeIcsText(`15:00 deadline hatırlatması: ${summary}`)}`,
+          `DESCRIPTION:${escapeIcsText(`12:00 deadline hatırlatması: ${summary}`)}`,
           "END:VALARM",
           "END:VEVENT"
         );
@@ -1835,7 +1825,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
     });
 
     document.getElementById("notifyBtn").addEventListener("click", () => { primeReminderAudio(); requestBrowserNotifications(); });
-    document.getElementById("testNotifyBtn").addEventListener("click", () => { primeReminderAudio(); testDeadlineNotification(); });
+    document.getElementById("testNotifyBtn")?.addEventListener("click", () => { primeReminderAudio(); testDeadlineNotification(); });
     document.getElementById("exportBtn").addEventListener("click", exportBackup);
     document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
     document.getElementById("importFile").addEventListener("change", event => importBackup(event.target.files[0]));
