@@ -67,7 +67,7 @@
             <button class="primary" onclick="window.print()">Yazdır / PDF Kaydet</button>
             <button id="exportCalendarBtn" class="green">Deadline Takvimi (.ics)</button>
             <button id="notifyBtn">Bildirim İzni 09:30/12/15</button>
-            <!-- <button id="testNotifyBtn" class="blue">Bildirim Testi (Sesli)</button> -->
+            <button id="testNotifyBtn" class="blue">Bildirim Testi (Sesli)</button>
             <button id="exportBtn">Yedek Dışa Aktar</button>
             <button id="importBtn">Yedek İçe Aktar</button>
             <input id="importFile" type="file" accept="application/json" style="display:none" />
@@ -75,6 +75,43 @@
           </div>
         </div>
         </section>
+      </details>
+
+      <details class="shrink-section manual-entry-section" data-shrink-key="manualEntry" open>
+        <summary>Manuel İçerik Ekle</summary>
+        <form id="manualEntryForm" class="manual-entry-form">
+          <div class="manual-entry-grid">
+            <label class="manual-field">
+              <span>Tarih</span>
+              <input id="manualDate" type="date" required />
+            </label>
+            <label class="manual-field">
+              <span>Marka</span>
+              <select id="manualFirm" required>
+                <option value="Fion">Fion</option>
+                <option value="Motoexpress">Motoexpress</option>
+                <option value="Byron">Byron</option>
+                <option value="MTPRO">MTPRO</option>
+              </select>
+            </label>
+            <label class="manual-field">
+              <span>İçerik tipi</span>
+              <select id="manualProjectType" required>
+                <option value="Video">Video</option>
+                <option value="Statik">Statik</option>
+              </select>
+            </label>
+            <label class="manual-field manual-note-field">
+              <span>Konu / not</span>
+              <input id="manualNote" type="text" maxlength="320" placeholder="Örn. Temmuz kampanyası Reels kurgusu" required />
+            </label>
+          </div>
+          <div class="manual-entry-actions">
+            <label class="manual-completed"><input id="manualCompleted" type="checkbox" /> İçerik tamamlandı</label>
+            <span class="manual-entry-info">Seçilen güne yeni bir içerik kartı olarak eklenir; mevcut kayıtların üzerine yazılmaz.</span>
+            <button id="manualAddBtn" class="green" type="submit">İçeriği Ekle</button>
+          </div>
+        </form>
       </details>
 
       <details class="shrink-section" data-shrink-key="summaryCards" open>

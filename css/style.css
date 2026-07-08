@@ -351,6 +351,97 @@
     button.tiny { padding: 5px 7px; font-size: 11px; border-radius: 9px; }
 
 
+    .manual-entry-form {
+      padding: 14px;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
+
+    .manual-entry-grid {
+      display: grid;
+      grid-template-columns: 170px 180px 160px minmax(280px, 1fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .manual-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .manual-field > span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .manual-field input,
+    .manual-field select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 11px;
+      background: #fff;
+      color: var(--ink);
+      font-family: inherit;
+      font-weight: 850;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .manual-field input:focus,
+    .manual-field select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+    }
+
+    .manual-entry-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .manual-completed {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .manual-entry-info {
+      margin-right: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 1050px) {
+      .manual-entry-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .manual-note-field { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 620px) {
+      .manual-entry-grid { grid-template-columns: 1fr; }
+      .manual-note-field { grid-column: auto; }
+      .manual-entry-actions {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .manual-entry-info { margin-right: 0; }
+      .manual-entry-actions button { width: 100%; }
+    }
+
     .shrink-section {
       margin-bottom: 18px;
       border: 1px solid rgba(214,219,228,.9);
@@ -1005,8 +1096,9 @@
 
     .firm-cell {
       position: relative;
-      padding: 10px 10px 9px;
-      height: 128px;
+      padding: 10px;
+      min-height: 52px;
+      height: auto;
       transition: background .2s ease, opacity .2s ease, box-shadow .2s ease, transform .2s ease;
     }
 
@@ -1027,19 +1119,48 @@
 
     .firm-cell.empty-slot:hover { box-shadow: none; }
 
+    .cell-deadline-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 10px;
+      font-weight: 1000;
+      letter-spacing: .07em;
+    }
+
+    .cell-deadline-head strong {
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(22,163,74,.17);
+      color: var(--green-dark);
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+
+    .deadline-card-list {
+      display: grid;
+      gap: 9px;
+    }
+
     .deadline-card {
       display: grid;
       gap: 8px;
-      height: 100%;
+      min-width: 0;
+      padding: 9px;
+      border: 1px solid rgba(22,163,74,.20);
+      border-radius: 12px;
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 5px 14px rgba(15,23,42,.06);
     }
 
-    .firm-cell:not(.has-project):not(.empty-slot) {
-      opacity: .80;
-      background: #fcfcfd;
+    .deadline-card.completed {
+      border-color: rgba(37,99,235,.24);
+      background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(239,246,255,.92));
     }
-
-    tbody tr:nth-child(even) .firm-cell:not(.has-project):not(.empty-slot) { background: #f8fafc; }
-    tbody tr:hover .firm-cell:not(.has-project):not(.empty-slot) { background: #f7fbff; }
 
     .firm-cell.has-project {
       background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
@@ -1047,17 +1168,6 @@
 
     tbody tr:nth-child(even) .firm-cell.has-project {
       background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
-    }
-
-    .firm-cell.has-project::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      background: var(--blue);
-      opacity: .82;
     }
 
     .firm-cell.deadline {
@@ -1070,26 +1180,41 @@
       background: linear-gradient(to bottom, var(--green) 0 6px, var(--green-soft) 6px 100%);
     }
 
-    .firm-cell.deadline::after {
-      content: "DEADLINE";
-      position: absolute;
-      right: 10px;
-      top: 11px;
-      color: var(--green-dark);
-      font-size: 10px;
-      font-weight: 1000;
-      letter-spacing: .07em;
-      pointer-events: none;
-      animation: deadlinePulse 1.8s ease-in-out infinite;
-    }
 
     .toprow {
       display: flex;
       align-items: center;
-      gap: 9px;
+      gap: 8px;
       flex-wrap: wrap;
       min-height: 25px;
-      padding-right: 78px;
+    }
+
+    .item-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 1000;
+    }
+
+    .item-delete {
+      margin-left: auto;
+    }
+
+    .danger-outline {
+      border-color: rgba(220,38,38,.22) !important;
+      color: #b91c1c !important;
+      background: rgba(255,255,255,.8) !important;
+    }
+
+    .danger-outline:hover {
+      background: #fff1f2 !important;
+      border-color: rgba(220,38,38,.34) !important;
     }
 
     .checkline {
@@ -1389,7 +1514,7 @@
       .subtitle { color: #667085; }
       .legend { color: #667085; justify-content: flex-start; }
       .legend-item { background: #fff; color: #667085; border-color: var(--line); }
-      .controls, .month-actions, .bulk-toolbar, .import-panel, .helper, .mini-actions, .radar-actions, .shrink-section > summary, .shrink-subsection > summary { display: none !important; }
+      .controls, .manual-entry-section, .month-actions, .bulk-toolbar, .import-panel, .helper, .mini-actions, .radar-actions, .shrink-section > summary, .shrink-subsection > summary { display: none !important; }
       header.app-header { grid-template-columns: 1fr; gap: 6px; }
       th, .date-cell { position: static; box-shadow: none; }
       details, details:not([open]) { display: block; }

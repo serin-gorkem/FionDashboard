@@ -1,6 +1,6 @@
 const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
-    const storageKey = "video-planner-tr-v13-day-highlight-sound";
-    const previousStorageKeys = ["video-planner-tr-v12-mode-deadline-radar", "video-planner-tr-v11-deadline-radar-slots", "video-planner-tr-v10-deadline-radar", "video-planner-tr-v9-category-date-fix", "video-planner-tr-v6", "video-planner-tr-v5", "video-planner-tr-v4", "video-planner-tr-v3", "video-planner-tr-v2", "video-planner-local-v2"];
+    const storageKey = "video-planner-tr-v14-multi-content";
+    const previousStorageKeys = ["video-planner-tr-v13-day-highlight-sound", "video-planner-tr-v12-mode-deadline-radar", "video-planner-tr-v11-deadline-radar-slots", "video-planner-tr-v10-deadline-radar", "video-planner-tr-v9-category-date-fix", "video-planner-tr-v6", "video-planner-tr-v5", "video-planner-tr-v4", "video-planner-tr-v3", "video-planner-tr-v2", "video-planner-local-v2"];
     const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const dayNames = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
     const projectTypes = ["Video", "Statik"];
@@ -39,7 +39,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       Object.entries(julySeedDeadlines).forEach(([firm, days]) => {
         days.forEach(day => {
           const key = cellKey("2026-07", day, firm);
-          state.cells[key] = { hasProject: false, projectType: "Video", deadline: true, note: "" };
+          state.cells[key] = { items: [createContentItem({ hasProject: false, projectType: "Video", deadline: true, note: "" })] };
         });
       });
 
@@ -61,7 +61,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           month.startDay = 1;
           month.endDay = daysInMonth(month.year, month.month);
         });
-        Object.keys(parsed.cells).forEach(key => normalizeCell(parsed.cells[key]));
+        Object.keys(parsed.cells).forEach(key => { parsed.cells[key] = normalizeCell(parsed.cells[key]); });
         return parsed;
       } catch (err) {
         return defaultState();
@@ -78,19 +78,50 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       return `${monthId}:${day}:${firm}`;
     }
 
+    function createContentItem(data = {}) {
+      const id = typeof data.id === "string" && data.id
+        ? data.id
+        : (typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+      return {
+        id,
+        hasProject: typeof data.hasProject === "boolean" ? data.hasProject : !!data.video,
+        projectType: projectTypes.includes(data.projectType) ? data.projectType : "Video",
+        deadline: typeof data.deadline === "boolean" ? data.deadline : false,
+        note: typeof data.note === "string" ? data.note : ""
+      };
+    }
+
     function normalizeCell(cell) {
-      if (typeof cell.hasProject !== "boolean") cell.hasProject = !!cell.video;
-      if (!projectTypes.includes(cell.projectType)) cell.projectType = "Video";
-      if (typeof cell.deadline !== "boolean") cell.deadline = false;
-      if (typeof cell.note !== "string") cell.note = "";
-      delete cell.video;
-      return cell;
+      if (!cell || typeof cell !== "object") return { items: [] };
+
+      if (Array.isArray(cell.items)) {
+        cell.items = cell.items
+          .filter(item => item && typeof item === "object")
+          .map(item => createContentItem(item));
+        return cell;
+      }
+
+      const legacy = createContentItem(cell);
+      const hasLegacyContent = legacy.deadline || legacy.hasProject || legacy.note.trim();
+      return { items: hasLegacyContent ? [legacy] : [] };
     }
 
     function getCell(monthId, day, firm) {
       const key = cellKey(monthId, day, firm);
-      if (!state.cells[key]) state.cells[key] = { hasProject: false, projectType: "Video", deadline: false, note: "" };
-      return normalizeCell(state.cells[key]);
+      state.cells[key] = normalizeCell(state.cells[key]);
+      return state.cells[key];
+    }
+
+    function getCellFromKey(key) {
+      state.cells[key] = normalizeCell(state.cells[key]);
+      return state.cells[key];
+    }
+
+    function getItemFromKey(key, itemId) {
+      const cell = getCellFromKey(key);
+      return cell.items.find(item => item.id === itemId) || null;
     }
 
     function getActiveModeConfig() {
@@ -145,6 +176,22 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           </div>
         `).join("");
       }
+
+      syncManualEntryMode();
+    }
+
+    function syncManualEntryMode() {
+      const typeSelect = document.getElementById("manualProjectType");
+      if (!typeSelect) return;
+      const mode = getActiveModeConfig();
+      if (mode.projectType) {
+        typeSelect.value = mode.projectType;
+        typeSelect.disabled = true;
+        typeSelect.title = `${mode.label} modunda içerik tipi ${mode.projectType} olarak kilitli.`;
+      } else {
+        typeSelect.disabled = false;
+        typeSelect.title = "";
+      }
     }
 
 
@@ -188,15 +235,18 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       return `${monthNames[monthData.month - 1]} ${monthData.year}`;
     }
 
-    function dayHasAnyVisibleDeadline(monthId, day) {
+    function itemMatchesActiveView(item) {
       const filter = state.settings.filterType || "all";
       const mode = getActiveModeConfig();
+      const matchesFilter = filter === "all" || item.projectType === filter;
+      const matchesMode = !mode.projectType || item.projectType === mode.projectType;
+      return matchesFilter && matchesMode;
+    }
+
+    function dayHasAnyVisibleDeadline(monthId, day) {
       return firms.some(firm => {
         const cell = getCell(monthId, day, firm);
-        if (!cell.deadline) return false;
-        const matchesFilter = filter === "all" || cell.projectType === filter;
-        const matchesMode = !mode.projectType || cell.projectType === mode.projectType;
-        return matchesFilter && matchesMode;
+        return cell.items.some(item => item.deadline && itemMatchesActiveView(item));
       });
     }
 
@@ -339,35 +389,45 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
     function renderCell(monthId, day, firm) {
       const cell = getCell(monthId, day, firm);
       const key = cellKey(monthId, day, firm);
-      const safeNote = escapeHtml(cell.note);
-      const typeClass = cell.projectType === "Video" ? "video-type" : "static-type";
+      const visibleItems = cell.items.filter(item => item.deadline && itemMatchesActiveView(item));
 
-      if (!cell.deadline) {
+      if (!visibleItems.length) {
         return `
-          <td class="firm-cell empty-slot" data-cell="${key}" data-project-type="${cell.projectType}" data-has-project="${cell.hasProject ? "true" : "false"}" data-deadline="false" data-has-note="${cell.note ? "true" : "false"}" aria-label="${firm} ${day}. gün boş"></td>
+          <td class="firm-cell empty-slot" data-cell="${key}" data-item-count="0" aria-label="${firm} ${day}. gün boş"></td>
         `;
       }
 
+      const hasCompleted = visibleItems.some(item => item.hasProject);
       return `
-        <td class="firm-cell deadline ${cell.hasProject ? "has-project" : ""}" data-cell="${key}" data-project-type="${cell.projectType}" data-has-project="${cell.hasProject ? "true" : "false"}" data-deadline="true" data-has-note="${cell.note ? "true" : "false"}">
-          <div class="deadline-card">
-            <div class="toprow">
-              <label class="checkline">
-                <input type="checkbox" data-type="hasProject" data-key="${key}" ${cell.hasProject ? "checked" : ""}>
-                <span>Tamamlandı</span>
-              </label>
-              <label class="checkline deadline-toggle">
-                <input type="checkbox" data-type="deadline" data-key="${key}" ${cell.deadline ? "checked" : ""}>
-                <span>Deadline</span>
-              </label>
-            </div>
-            <div class="type-row">
-              <span>Tip</span>
-              <select class="type-select ${typeClass}" data-type="projectType" data-key="${key}">
-                ${projectTypes.map(type => `<option value="${type}" ${cell.projectType === type ? "selected" : ""}>${type}</option>`).join("")}
-              </select>
-            </div>
-            <textarea class="idea" data-type="note" data-key="${key}" placeholder="Konu / not">${safeNote}</textarea>
+        <td class="firm-cell deadline ${hasCompleted ? "has-project" : ""}" data-cell="${key}" data-item-count="${visibleItems.length}" data-deadline="true">
+          <div class="cell-deadline-head">
+            <span>DEADLINE</span>
+            <strong>${visibleItems.length} içerik</strong>
+          </div>
+          <div class="deadline-card-list">
+            ${visibleItems.map((item, index) => {
+              const safeNote = escapeHtml(item.note);
+              const typeClass = item.projectType === "Video" ? "video-type" : "static-type";
+              return `
+                <article class="deadline-card ${item.hasProject ? "completed" : ""}" data-item-id="${item.id}">
+                  <div class="toprow">
+                    <label class="checkline">
+                      <input type="checkbox" data-type="hasProject" data-key="${key}" data-item-id="${item.id}" ${item.hasProject ? "checked" : ""}>
+                      <span>Tamamlandı</span>
+                    </label>
+                    <span class="item-number">#${index + 1}</span>
+                    <button class="tiny danger-outline item-delete" type="button" data-action="remove-content" data-key="${key}" data-item-id="${item.id}">Sil</button>
+                  </div>
+                  <div class="type-row">
+                    <span>Tip</span>
+                    <select class="type-select ${typeClass}" data-type="projectType" data-key="${key}" data-item-id="${item.id}">
+                      ${projectTypes.map(type => `<option value="${type}" ${item.projectType === type ? "selected" : ""}>${type}</option>`).join("")}
+                    </select>
+                  </div>
+                  <textarea class="idea" data-type="note" data-key="${key}" data-item-id="${item.id}" placeholder="Konu / not">${safeNote}</textarea>
+                </article>
+              `;
+            }).join("")}
           </div>
         </td>
       `;
@@ -383,18 +443,20 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
         for (let day = 1; day <= endDay; day++) {
           firms.forEach(firm => {
             const cell = getCell(monthData.id, day, firm);
-            if (!modeAllowsProjectType(cell.projectType)) return;
-            if (cell.deadline) {
-              monthCounts[firm].deadline++;
-              monthCounts[firm][cell.projectType]++;
-            }
-            if (cell.hasProject) {
-              monthCounts[firm].completed++;
-              if (!monthData.closed) {
-                totals[firm].total++;
-                totals[firm][cell.projectType]++;
+            cell.items.forEach(item => {
+              if (!modeAllowsProjectType(item.projectType)) return;
+              if (item.deadline) {
+                monthCounts[firm].deadline++;
+                monthCounts[firm][item.projectType]++;
               }
-            }
+              if (item.hasProject) {
+                monthCounts[firm].completed++;
+                if (!monthData.closed) {
+                  totals[firm].total++;
+                  totals[firm][item.projectType]++;
+                }
+              }
+            });
           });
         }
 
@@ -433,6 +495,61 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       render();
     }
 
+    function addManualContent(event) {
+      event.preventDefault();
+
+      const dateValue = document.getElementById("manualDate")?.value;
+      const firm = document.getElementById("manualFirm")?.value;
+      const type = document.getElementById("manualProjectType")?.value;
+      const note = document.getElementById("manualNote")?.value.trim();
+      const completed = !!document.getElementById("manualCompleted")?.checked;
+
+      if (!dateValue || !firm || !type || !note) {
+        showInAppNotification("Eksik bilgi", "Tarih, marka, içerik tipi ve konu/not alanlarını doldur.", "warn", 6000);
+        return;
+      }
+      if (!firms.includes(firm) || !projectTypes.includes(type)) return;
+
+      const [yearText, monthText, dayText] = dateValue.split("-");
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      if (!year || !month || !day || day > daysInMonth(year, month)) {
+        showInAppNotification("Geçersiz tarih", "Geçerli bir içerik tarihi seç.", "warn", 6000);
+        return;
+      }
+
+      const monthId = `${yearText}-${monthText}`;
+      let monthData = state.months.find(item => item.id === monthId);
+      if (!monthData) {
+        monthData = { id: monthId, year, month, startDay: 1, endDay: daysInMonth(year, month), collapsed: false, closed: false };
+        state.months.push(monthData);
+      } else {
+        monthData.collapsed = false;
+        monthData.closed = false;
+      }
+
+      const key = cellKey(monthId, day, firm);
+      const cell = getCell(monthId, day, firm);
+      const item = createContentItem({
+        hasProject: completed,
+        projectType: type,
+        deadline: true,
+        note
+      });
+      cell.items.push(item);
+      state.cells[key] = cell;
+
+      saveState();
+      render();
+      scheduleDeadlineNotifications();
+
+      document.getElementById("manualNote").value = "";
+      document.getElementById("manualCompleted").checked = false;
+      showInAppNotification("İçerik eklendi", `${firm} • ${type} • ${formatDate(day, month, year)} • Aynı gündeki ${cell.items.length}. içerik`, "ok", 6500);
+      focusPlannerCell(key, item.id);
+    }
+
     function setMonthType(monthId, value) {
       const monthData = state.months.find(m => m.id === monthId);
       if (!monthData || !projectTypes.includes(value)) return;
@@ -441,7 +558,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
         firms.forEach(firm => {
           const key = cellKey(monthId, day, firm);
           const cell = getCell(monthId, day, firm);
-          cell.projectType = value;
+          cell.items.forEach(item => { item.projectType = value; });
           state.cells[key] = cell;
         });
       }
@@ -456,7 +573,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       for (let day = 1; day <= endDay; day++) {
         const key = cellKey(monthId, day, firm);
         const cell = getCell(monthId, day, firm);
-        cell.projectType = value;
+        cell.items.forEach(item => { item.projectType = value; });
         state.cells[key] = cell;
       }
       saveState();
@@ -465,27 +582,9 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
 
 
     function applyTypeFilter() {
-      const filter = state.settings.filterType || "all";
-      const mode = getActiveModeConfig();
-      const activeModeType = mode.projectType;
-      const shouldFilter = filter !== "all" || !!activeModeType;
-
-      document.querySelectorAll("tbody tr").forEach(row => {
-        row.querySelectorAll(".firm-cell").forEach(cell => {
-          const hasContent = cell.dataset.hasProject === "true" || cell.dataset.deadline === "true" || cell.dataset.hasNote === "true";
-
-          // Boş hücreler her zaman görünür kalmalı. Aksi halde dosya yükleme veya rol filtresi
-          // sonrası yalnızca içerik olan günler görünür ve ayın boş günleri kaybolmuş gibi durur.
-          const matchesTypeFilter = filter === "all" || !hasContent || cell.dataset.projectType === filter;
-          const matchesMode = !activeModeType || !hasContent || cell.dataset.projectType === activeModeType;
-          const matches = matchesTypeFilter && matchesMode;
-
-          cell.classList.toggle("filtered-out", shouldFilter && hasContent && !matches);
-        });
-
-        // Gün satırlarını filtreyle gizleme; ay 01'den son güne kadar her zaman tam kalsın.
-        row.classList.remove("filter-hidden");
-      });
+      // Kartlar render sırasında aktif moda ve tipe göre oluşturulur.
+      // Gün satırları her zaman ayın tamamını göstermeye devam eder.
+      document.querySelectorAll("tbody tr").forEach(row => row.classList.remove("filter-hidden"));
     }
 
     function setImportResult(monthId, message, status = "ok") {
@@ -522,10 +621,13 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           const cell = getCell(monthId, day, firm);
           const type = entry.projectType || (entry.hasVideo ? "Video" : "Statik");
 
-          // Dosyadan gelen satırlar plan/deadline bilgisidir; tamamlandı kutusunu asla otomatik işaretleme.
-          cell.deadline = true;
-          cell.projectType = type;
-          cell.note = Array.from(entry.notes || []).filter(Boolean).join(" | ").slice(0, 320);
+          // Dosyadan gelen kayıt mevcut içeriklerin üzerine yazılmaz; yeni kart olarak eklenir.
+          cell.items.push(createContentItem({
+            hasProject: false,
+            deadline: true,
+            projectType: type,
+            note: Array.from(entry.notes || []).filter(Boolean).join(" | ").slice(0, 320)
+          }));
 
           if (type === "Video") videoCount++; else staticCount++;
           deadlineCount++;
@@ -546,7 +648,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       if (!monthData) return;
       const endDay = daysInMonth(monthData.year, monthData.month);
       for (let day = 1; day <= endDay; day++) {
-        state.cells[cellKey(monthId, day, firm)] = { hasProject: false, projectType: "Video", deadline: false, note: "" };
+        state.cells[cellKey(monthId, day, firm)] = { items: [] };
       }
     }
 
@@ -1012,29 +1114,32 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           firms.forEach(firm => {
             const key = cellKey(monthData.id, day, firm);
             const cell = getCell(monthData.id, day, firm);
-            if (!cell.deadline) return;
-            if (!includeCompleted && cell.hasProject) return;
-            if (!ignoreRoleMode && !modeAllowsProjectType(cell.projectType)) return;
+            cell.items.forEach(item => {
+              if (!item.deadline) return;
+              if (!includeCompleted && item.hasProject) return;
+              if (!ignoreRoleMode && !modeAllowsProjectType(item.projectType)) return;
 
-            const date = makeLocalDate(monthData, day);
-            items.push({
-              key,
-              firm,
-              day,
-              date,
-              monthId: monthData.id,
-              monthData,
-              projectType: cell.projectType,
-              note: cell.note || "",
-              completed: !!cell.hasProject,
-              closed: !!monthData.closed,
-              daysDiff: dateDiffInDays(date, today)
+              const date = makeLocalDate(monthData, day);
+              items.push({
+                key,
+                itemId: item.id,
+                firm,
+                day,
+                date,
+                monthId: monthData.id,
+                monthData,
+                projectType: item.projectType,
+                note: item.note || "",
+                completed: !!item.hasProject,
+                closed: !!monthData.closed,
+                daysDiff: dateDiffInDays(date, today)
+              });
             });
           });
         }
       });
 
-      items.sort((a, b) => a.date - b.date || a.firm.localeCompare(b.firm, "tr") || a.projectType.localeCompare(b.projectType, "tr"));
+      items.sort((a, b) => a.date - b.date || a.firm.localeCompare(b.firm, "tr") || a.projectType.localeCompare(b.projectType, "tr") || a.itemId.localeCompare(b.itemId));
       return items;
     }
 
@@ -1114,7 +1219,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
           <div class="radar-item-note">${note}</div>
           <div class="radar-meta">
             <span class="radar-date">${dateLabel} • ${getDayLabel(item.day, item.monthData.month, item.monthData.year)}</span>
-            <button class="tiny ghost" data-action="go-to-cell" data-key="${escapeHtml(item.key)}" type="button">Hücreye git</button>
+            <button class="tiny ghost" data-action="go-to-cell" data-key="${escapeHtml(item.key)}" data-item-id="${escapeHtml(item.itemId)}" type="button">Hücreye git</button>
           </div>
         </div>
       `;
@@ -1519,7 +1624,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
 
         lines.push(
           "BEGIN:VEVENT",
-          `UID:${escapeIcsText(item.key)}-${item.projectType.toLowerCase()}@fion-video-planner`,
+          `UID:${escapeIcsText(item.key)}-${escapeIcsText(item.itemId)}-${item.projectType.toLowerCase()}@fion-video-planner`,
           `DTSTAMP:${formatIcsDateTime(new Date())}`,
           `DTSTART:${formatIcsDateTime(start)}`,
           `DTEND:${formatIcsDateTime(end)}`,
@@ -1560,7 +1665,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
         .replace(/\r?\n/g, "\\n");
     }
 
-    function focusPlannerCell(key) {
+    function focusPlannerCell(key, itemId = null) {
       const [monthId] = key.split(":");
       const monthData = state.months.find(m => m.id === monthId);
       if (monthData && monthData.collapsed) {
@@ -1572,10 +1677,11 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       requestAnimationFrame(() => {
         const cell = document.querySelector(`[data-cell="${key}"]`);
         if (!cell) return;
-        cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-        cell.classList.remove("cell-flash");
-        void cell.offsetWidth;
-        cell.classList.add("cell-flash");
+        const target = itemId ? cell.querySelector(`[data-item-id="${itemId}"]`) || cell : cell;
+        target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        target.classList.remove("cell-flash");
+        void target.offsetWidth;
+        target.classList.add("cell-flash");
       });
     }
 
@@ -1604,7 +1710,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
             month.startDay = 1;
             month.endDay = daysInMonth(month.year, month.month);
           });
-          Object.keys(state.cells).forEach(key => normalizeCell(state.cells[key]));
+          Object.keys(state.cells).forEach(key => { state.cells[key] = normalizeCell(state.cells[key]); });
           saveState();
           render();
           alert("Planlayıcı yedeği içe aktarıldı.");
@@ -1631,46 +1737,20 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
     document.addEventListener("change", event => {
       const target = event.target;
 
-      if (target.matches('input[type="checkbox"][data-key]')) {
-        const cell = getCellFromKey(target.dataset.key);
-
-        if (target.dataset.type === "hasProject") {
-          cell.hasProject = target.checked;
-          const td = document.querySelector(`[data-cell="${target.dataset.key}"]`);
-          if (td) {
-            td.classList.toggle("has-project", target.checked);
-            td.dataset.hasProject = target.checked ? "true" : "false";
-          }
-        }
-
-        if (target.dataset.type === "deadline") {
-          cell.deadline = target.checked;
-          const td = document.querySelector(`[data-cell="${target.dataset.key}"]`);
-          if (td) {
-            td.classList.toggle("deadline", target.checked);
-            td.dataset.deadline = target.checked ? "true" : "false";
-          }
-        }
-
-        state.cells[target.dataset.key] = cell;
+      if (target.matches('input[type="checkbox"][data-key][data-item-id]')) {
+        const item = getItemFromKey(target.dataset.key, target.dataset.itemId);
+        if (!item) return;
+        if (target.dataset.type === "hasProject") item.hasProject = target.checked;
         saveState();
-        updateTotals();
-        renderDeadlineRadar();
         render();
         return;
       }
 
-      if (target.matches('select[data-type="projectType"][data-key]')) {
-        const cell = getCellFromKey(target.dataset.key);
-        cell.projectType = target.value;
-        target.classList.toggle("video-type", target.value === "Video");
-        target.classList.toggle("static-type", target.value === "Statik");
-        const td = document.querySelector(`[data-cell="${target.dataset.key}"]`);
-        if (td) td.dataset.projectType = target.value;
-        state.cells[target.dataset.key] = cell;
+      if (target.matches('select[data-type="projectType"][data-key][data-item-id]')) {
+        const item = getItemFromKey(target.dataset.key, target.dataset.itemId);
+        if (!item) return;
+        item.projectType = target.value;
         saveState();
-        updateTotals();
-        renderDeadlineRadar();
         render();
         return;
       }
@@ -1693,9 +1773,6 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
         const mode = getActiveModeConfig();
         state.settings.filterType = mode.projectType || "all";
         saveState();
-
-        // Mod değişince bazı alanlar DOM'dan tamamen kalkmalı / geri gelmeli.
-        // Bu yüzden partial update değil, tam render gerekli.
         render();
         scheduleDeadlineNotifications();
         return;
@@ -1714,22 +1791,14 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
 
     document.addEventListener("input", event => {
       const target = event.target;
-      if (target.matches('textarea[data-key]')) {
-        const cell = getCellFromKey(target.dataset.key);
-        cell.note = target.value;
-        const td = document.querySelector(`[data-cell="${target.dataset.key}"]`);
-        if (td) td.dataset.hasNote = target.value.trim() ? "true" : "false";
-        state.cells[target.dataset.key] = cell;
+      if (target.matches('textarea[data-key][data-item-id]')) {
+        const item = getItemFromKey(target.dataset.key, target.dataset.itemId);
+        if (!item) return;
+        item.note = target.value;
         saveState();
         renderDeadlineRadar();
-        applyTypeFilter();
       }
     });
-
-    function getCellFromKey(key) {
-      const existing = state.cells[key] || { hasProject: false, projectType: "Video", deadline: false, note: "" };
-      return normalizeCell(existing);
-    }
 
     document.addEventListener("click", event => {
       if (event.target.closest("#radarTestNotifyBtn")) {
@@ -1754,7 +1823,20 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       const action = button.dataset.action;
 
       if (action === "go-to-cell") {
-        focusPlannerCell(button.dataset.key);
+        focusPlannerCell(button.dataset.key, button.dataset.itemId || null);
+        return;
+      }
+
+      if (action === "remove-content") {
+        const cell = getCellFromKey(button.dataset.key);
+        const item = cell.items.find(entry => entry.id === button.dataset.itemId);
+        if (!item) return;
+        const label = item.note.trim() || `${item.projectType} içeriği`;
+        if (!confirm(`“${label}” silinsin mi?`)) return;
+        cell.items = cell.items.filter(entry => entry.id !== button.dataset.itemId);
+        state.cells[button.dataset.key] = cell;
+        saveState();
+        render();
         return;
       }
 
@@ -1817,6 +1899,7 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
       showProtectionNotice("Kaynak görüntüleme / kayıt kısayolları bu sayfada sınırlandırıldı.");
     });
 
+    document.getElementById("manualEntryForm").addEventListener("submit", addManualContent);
     document.getElementById("addMonthBtn").addEventListener("click", () => addMonth(document.getElementById("monthInput").value));
     document.getElementById("exportCalendarBtn").addEventListener("click", exportDeadlineCalendar);
     window.addEventListener("focus", stopTitleAttention);
@@ -1842,6 +1925,8 @@ const firms = ["Fion", "Motoexpress", "Byron", "MTPRO"];
 
     const today = new Date();
     document.getElementById("monthInput").value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    document.getElementById("manualDate").value = getLocalDateKey(today);
+    syncManualEntryMode();
 
     saveState();
     render();
